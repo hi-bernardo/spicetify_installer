@@ -1,0 +1,1 @@
+winget uninstall -e --id Spotify.Spotify
