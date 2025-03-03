@@ -8,53 +8,189 @@ $spicetifyOldFolderPath = "$HOME\spicetify-cli"
 
 #region Functions
 function Write-Success {
+  [CmdletBinding()]
   param ()
-  Write-Host ' > OK' -ForegroundColor 'Green'
+  process {
+    Write-Host -Object ' > OK' -ForegroundColor 'Green'
+  }
 }
 
 function Write-Unsuccess {
+  [CmdletBinding()]
   param ()
-  Write-Host ' > ERROR' -ForegroundColor 'Red'
+  process {
+    Write-Host -Object ' > ERROR' -ForegroundColor 'Red'
+  }
 }
 
 function Test-Admin {
+  [CmdletBinding()]
   param ()
-  Write-Host "Checking if the script is not being run as administrator..." -NoNewline
-  $currentUser = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
-  if (-not $currentUser.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+  begin {
+    Write-Host -Object "Checking if the script is not being run as administrator..." -NoNewline
+  }
+  process {
+    $currentUser = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
+    -not $currentUser.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+  }
+}
+
+# Verificação de administrador (sempre continua a execução)
+if (-not (Test-Admin)) {
+  Write-Host -Object " > WARNING: Running as administrator. Continuing anyway..." -ForegroundColor 'Yellow'
+}
+else {
+  Write-Success
+}
+
+function Test-PowerShellVersion {
+  [CmdletBinding()]
+  param ()
+  begin {
+    $PSMinVersion = [version]'5.1'
+  }
+  process {
+    Write-Host -Object 'Checking if your PowerShell version is compatible...' -NoNewline
+    $PSVersionTable.PSVersion -ge $PSMinVersion
+  }
+}
+
+function Move-OldSpicetifyFolder {
+  [CmdletBinding()]
+  param ()
+  process {
+    if (Test-Path -Path $spicetifyOldFolderPath) {
+      Write-Host -Object 'Moving the old spicetify folder...' -NoNewline
+      Copy-Item -Path "$spicetifyOldFolderPath\*" -Destination $spicetifyFolderPath -Recurse -Force
+      Remove-Item -Path $spicetifyOldFolderPath -Recurse -Force
+      Write-Success
+    }
+  }
+}
+
+function Get-Spicetify {
+  [CmdletBinding()]
+  param ()
+  begin {
+    if ($env:PROCESSOR_ARCHITECTURE -eq 'AMD64') {
+      $architecture = 'x64'
+    }
+    elseif ($env:PROCESSOR_ARCHITECTURE -eq 'ARM64') {
+      $architecture = 'arm64'
+    }
+    else {
+      $architecture = 'x32'
+    }
+    if ($v) {
+      if ($v -match '^\d+\.\d+\.\d+$') {
+        $targetVersion = $v
+      }
+      else {
+        Write-Warning -Message "You have spicefied an invalid spicetify version: $v `nThe version must be in the following format: 1.2.3"
+        Pause
+        exit
+      }
+    }
+    else {
+      Write-Host -Object 'Fetching the latest spicetify version...' -NoNewline
+      $latestRelease = Invoke-RestMethod -Uri 'https://api.github.com/repos/spicetify/cli/releases/latest'
+      $targetVersion = $latestRelease.tag_name -replace 'v', ''
+      Write-Success
+    }
+    $archivePath = [System.IO.Path]::Combine([System.IO.Path]::GetTempPath(), "spicetify.zip")
+  }
+  process {
+    Write-Host -Object "Downloading spicetify v$targetVersion..." -NoNewline
+    $Parameters = @{
+      Uri            = "https://github.com/spicetify/cli/releases/download/v$targetVersion/spicetify-$targetVersion-windows-$architecture.zip"
+      UseBasicParsin = $true
+      OutFile        = $archivePath
+    }
+    Invoke-WebRequest @Parameters
     Write-Success
-  } else {
-    Write-Unsuccess
-    Write-Warning "The script is running as administrator. This can cause issues but will continue."
+  }
+  end {
+    $archivePath
+  }
+}
+
+function Add-SpicetifyToPath {
+  [CmdletBinding()]
+  param ()
+  begin {
+    Write-Host -Object 'Making spicetify available in the PATH...' -NoNewline
+    $user = [EnvironmentVariableTarget]::User
+    $path = [Environment]::GetEnvironmentVariable('PATH', $user)
+  }
+  process {
+    $path = $path -replace "$([regex]::Escape($spicetifyOldFolderPath))\\*;*", ''
+    if ($path -notlike "*$spicetifyFolderPath*") {
+      $path = "$path;$spicetifyFolderPath"
+    }
+  }
+  end {
+    [Environment]::SetEnvironmentVariable('PATH', $path, $user)
+    $env:PATH = $path
+    Write-Success
   }
 }
 
 function Install-Spicetify {
+  [CmdletBinding()]
   param ()
-  Write-Host 'Installing spicetify...'
-  $archivePath = [System.IO.Path]::Combine([System.IO.Path]::GetTempPath(), "spicetify.zip")
-  Invoke-WebRequest -Uri "https://github.com/spicetify/cli/releases/latest/download/spicetify-windows.zip" -OutFile $archivePath
-  Expand-Archive -Path $archivePath -DestinationPath $spicetifyFolderPath -Force
-  Write-Success
-  Remove-Item -Path $archivePath -Force -ErrorAction 'SilentlyContinue'
-  Write-Host 'spicetify was successfully installed!' -ForegroundColor 'Green'
-}
-
-function Install-Marketplace {
-  param ()
-  Write-Host 'Installing Spicetify Marketplace...'
-  Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/spicetify/spicetify-marketplace/main/resources/install.ps1' -UseBasicParsing | Invoke-Expression
-  Write-Success
+  begin {
+    Write-Host -Object 'Installing spicetify...'
+  }
+  process {
+    $archivePath = Get-Spicetify
+    Write-Host -Object 'Extracting spicetify...' -NoNewline
+    Expand-Archive -Path $archivePath -DestinationPath $spicetifyFolderPath -Force
+    Write-Success
+    Add-SpicetifyToPath
+  }
+  end {
+    Remove-Item -Path $archivePath -Force -ErrorAction 'SilentlyContinue'
+    Write-Host -Object 'spicetify was successfully installed!' -ForegroundColor 'Green'
+  }
 }
 #endregion Functions
 
 #region Main
-Test-Admin
+#region Checks
+if (-not (Test-PowerShellVersion)) {
+  Write-Unsuccess
+  Write-Warning -Message 'PowerShell 5.1 or higher is required to run this script'
+  Write-Warning -Message "You are running PowerShell $($PSVersionTable.PSVersion)"
+  Write-Host -Object 'PowerShell 5.1 install guide:'
+  Write-Host -Object 'https://learn.microsoft.com/skypeforbusiness/set-up-your-computer-for-windows-powershell/download-and-install-windows-powershell-5-1'
+  Write-Host -Object 'PowerShell 7 install guide:'
+  Write-Host -Object 'https://learn.microsoft.com/powershell/scripting/install/installing-powershell-on-windows'
+  Pause
+  exit
+}
+else {
+  Write-Success
+}
+#endregion Checks
+
+#region Spicetify
+Move-OldSpicetifyFolder
 Install-Spicetify
-Install-Marketplace
-Write-Host "\nRun" -NoNewline
-Write-Host ' spicetify -h ' -NoNewline -ForegroundColor 'Cyan'
-Write-Host 'to get started'
+Write-Host -Object "`nRun" -NoNewline
+Write-Host -Object ' spicetify -h ' -NoNewline -ForegroundColor 'Cyan'
+Write-Host -Object 'to get started'
+#endregion Spicetify
+
+#region Marketplace
+# Instalação automática do Spicetify Marketplace
+Write-Host -Object 'Installing Spicetify Marketplace...' -NoNewline
+$Parameters = @{
+  Uri             = 'https://raw.githubusercontent.com/spicetify/spicetify-marketplace/main/resources/install.ps1'
+  UseBasicParsing = $true
+}
+Invoke-WebRequest @Parameters | Invoke-Expression
+Write-Success
+#endregion Marketplace
 #endregion Main
 #region Custom Apps Installation
 Write-Host -Object 'Installing lyrics-plus app...' -NoNewline
