@@ -1,14 +1,22 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QLabel, QProgressBar
+import requests
+import os
+import pyperclip
+import subprocess
+from PyQt5.QtWidgets import (
+    QApplication, QWidget, QPushButton, QLabel, QProgressBar, QMessageBox
+)
 from PyQt5.QtGui import QFontDatabase, QFont, QPalette, QColor, QCursor, QIcon
 from PyQt5.QtCore import Qt, QTimer
+
 
 class CustomButton(QPushButton):
     def __init__(self, texto, cor, fonte, parent=None):
         super().__init__(texto, parent)
         self.setFont(fonte)
         self.setCursor(QCursor(Qt.PointingHandCursor))
-        self.setStyleSheet(f"""
+        self.setStyleSheet(
+            f"""
             QPushButton {{
                 background-color: {cor};
                 color: white;
@@ -19,7 +27,8 @@ class CustomButton(QPushButton):
                 background-color: {self.adjust_brightness(cor, 1.4)};
                 font-weight: bold;
             }}
-        """)
+        """
+            )
 
     def adjust_brightness(self, color_hex, factor):
         color = QColor(color_hex)
@@ -33,7 +42,7 @@ class SpicetifyInstaller(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Instalador Spicetify")
-        self.setFixedSize(400, 240)
+        self.setFixedSize(400, 260)
         self.setWindowIcon(QIcon("src/icon.ico"))
 
         palette = self.palette()
@@ -72,21 +81,23 @@ class SpicetifyInstaller(QWidget):
         self.progress.setVisible(False)
         self.progress.setAlignment(Qt.AlignCenter)
         self.progress.setTextVisible(True)
-        self.progress.setStyleSheet("""
-            QProgressBar {
-                border: none;
-                border-radius: 10px;
-                background-color: #363636;
-                text-align: center;
-                color: white;
-                font-weight: bold;
-            }
-            QProgressBar::chunk {
-                border-radius: 10px;
-                background-color: #00c853;
-                margin: 0px;
-            }
-        """)
+        self.progress.setStyleSheet(
+            """
+                        QProgressBar {
+                            border: none;
+                            border-radius: 10px;
+                            background-color: #363636;
+                            text-align: center;
+                            color: white;
+                            font-weight: bold;
+                        }
+                        QProgressBar::chunk {
+                            border-radius: 10px;
+                            background-color: #00c853;
+                            margin: 0px;
+                        }
+                    """
+            )
 
         self.label_autor = QLabel("by oBrazoo", self)
         self.label_autor.setGeometry(8, self.height() - 20, 100, 15)
@@ -94,28 +105,81 @@ class SpicetifyInstaller(QWidget):
 
         self.btn_instalar = CustomButton("INSTALAR SPICETIFY", "#0085eb", self.font_bold, self)
         self.btn_instalar.setGeometry(padding, 20, full_width, 40)
-        self.btn_instalar.clicked.connect(self.simular_instalacao)
+        self.btn_instalar.clicked.connect(self.instalar_spotify_spicetify)
 
-        self.btn_desinst_spicetify = CustomButton("SPICETIFY", "#D32F2F", self.font_regular, self)
-        self.btn_desinst_spicetify.setGeometry(padding, 120, half_width, 40)
-        self.btn_desinst_spicetify.clicked.connect(lambda: self.simular_acao("SPICETIFY"))
+        self.btn_uns_spicetify = CustomButton("SPICETIFY", "#D32F2F", self.font_regular, self)
+        self.btn_uns_spicetify.setGeometry(padding, 120, half_width, 40)
+        self.btn_uns_spicetify.clicked.connect(
+            lambda: self.executar_powershell(
+                "https://raw.githubusercontent.com/hi-bernardo/spicetify_installer/master/src/scripts/uns_spicetify.ps1"
+                )
+            )
 
-        self.btn_desinst_spotify = CustomButton("SPOTIFY", "#D32F2F", self.font_regular, self)
-        self.btn_desinst_spotify.setGeometry(padding * 2 + half_width, 120, half_width, 40)
-        self.btn_desinst_spotify.clicked.connect(lambda: self.simular_acao("SPOTIFY"))
+        self.btn_uns_spotify = CustomButton("SPOTIFY", "#D32F2F", self.font_regular, self)
+        self.btn_uns_spotify.setGeometry(padding * 2 + half_width, 120, half_width, 40)
+        self.btn_uns_spotify.clicked.connect(
+            lambda: self.executar_powershell(
+                "https://raw.githubusercontent.com/hi-bernardo/spicetify_installer/master/src/scripts/uns_spotify.ps1"
+                )
+            )
 
-    def simular_instalacao(self):
-        self.acao = "INSTALANDO"
+        self.btn_copy_gist = QPushButton(self)
+        self.btn_copy_gist.setGeometry(self.width() - 40, self.height() - 40, 28, 28)
+        self.btn_copy_gist.setIcon(QIcon("src/icons/copy.ico"))
+        self.btn_copy_gist.setStyleSheet("background-color: transparent;")
+        self.btn_copy_gist.setCursor(QCursor(Qt.PointingHandCursor))
+        self.btn_copy_gist.clicked.connect(self.copiar_gist)
+
+    def executar_powershell(self, url):
+        subprocess.run(
+                ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command",
+                 f"irm {url} | iex"], shell=True
+                )
+
+    def spotify_esta_instalado_winget(self):
+        try:
+            result = subprocess.run(
+                    ["winget", "list", "--name", "Spotify"],
+                    capture_output=True,
+                    text=True,
+                    shell=True
+            )
+            output = result.stdout.strip()
+
+            if "Spotify" in output:
+                return True
+            else:
+                return False
+        except Exception as e:
+            print(f"Erro ao verificar Spotify: {e}")
+            return False
+
+    def instalar_spotify_spicetify(self):
+        if self.spotify_esta_instalado_winget():
+            QMessageBox.information(self, "Spotify", "Spotify já está instalado. Prosseguindo com o Spicetify...")
+        else:
+            QMessageBox.information(self, "Spotify", "Spotify não encontrado. Instalando agora...")
+            self.executar_powershell("https://raw.githubusercontent.com/hi-bernardo/spicetify_installer/master/src/scripts/ins_spotify.ps1")
+
+        self.executar_powershell("https://raw.githubusercontent.com/hi-bernardo/spicetify_installer/master/src/scripts/ins_spicetify.ps1")
         self.start_progress_animation()
 
-    # def simular_acao(self, nome):
-    #     self.acao = f"DESINSTALANDO {nome}"
-    #     self.start_progress_animation()
+    def copiar_gist(self):
+        url = "https://gist.githubusercontent.com/hi-bernardo/5abd76c0f4f7dd366c6a22d90d5b59da/raw/spotify-backup.json"
+        try:
+            resposta = requests.get(url)
+            if resposta.status_code == 200:
+                pyperclip.copy(resposta.text)
+                QMessageBox.information(self, "Copiado", "Mensagem copiada para a área de transferência!")
+            else:
+                QMessageBox.warning(self, "Erro", "Falha ao acessar o conteúdo do Gist.")
+        except Exception as e:
+            QMessageBox.critical(self, "Erro", f"Erro ao copiar: {e}")
 
+    # ANIMAÇÕES / BARRA DE PROGRESSO
     def start_progress_animation(self):
         self.progress.setValue(0)
         self.progress.setVisible(True)
-
         self.progress_value = 0
         self.timer.start(30)
 
