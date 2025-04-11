@@ -1,412 +1,135 @@
-from kivy.config import Config
-Config.set('graphics', 'position', 'auto')
-Config.set('graphics', 'resizable', False)
-Config.set('kivy', 'window_icon', 'icon.ico')
-from kivy.resources import resource_add_path
 import sys
-import os
-import subprocess
-import threading
-from kivy.app import App
-from kivy.core.window import Window
-from kivy.animation import Animation
-from kivy.uix.button import Button
-from kivy.clock import Clock
-from kivy.uix.boxlayout import BoxLayout
-from kivy.uix.popup import Popup
-from kivy.uix.label import Label
-from kivy.metrics import dp
-from kivy.lang import Builder
-from kivy.properties import (
-    BooleanProperty, ColorProperty,
-    StringProperty, NumericProperty
-)
-if getattr(sys, 'frozen', False):
-    base_dir = sys._MEIPASS
-else:
-    base_dir = os.path.dirname(__file__)
+from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QLabel, QProgressBar
+from PyQt5.QtGui import QFontDatabase, QFont, QPalette, QColor, QCursor, QIcon
+from PyQt5.QtCore import Qt, QTimer
 
-FONT_BOLD = os.path.join(base_dir, 'font', 'Montserrat-Bold.ttf')
-FONT_SEMIBOLD = os.path.join(base_dir, 'font', 'Montserrat-SemiBold.ttf')
+class CustomButton(QPushButton):
+    def __init__(self, texto, cor, fonte, parent=None):
+        super().__init__(texto, parent)
+        self.setFont(fonte)
+        self.setCursor(QCursor(Qt.PointingHandCursor))
+        self.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {cor};
+                color: white;
+                border-radius: 5px;
+                font-weight: normal;
+            }}
+            QPushButton:hover {{
+                background-color: {self.adjust_brightness(cor, 1.4)};
+                font-weight: bold;
+            }}
+        """)
 
-resource_add_path(os.path.join(base_dir, 'font'))
-
-Window.size = (400, 270)
-Window.clearcolor = (0.2, 0.6, 0.9, 1)
-
-kv_string = '''
-<HoverButton>:
-    font_size: self.original_font_size
-    background_normal: ''
-    background_color: 0,0,0,0
-    color: 0,0,0,1
-    canvas.before:
-        Color:
-            rgba: self.hover_color if self.hovered else self.default_color
-        RoundedRectangle:
-            pos: self.pos
-            size: self.size
-            radius: [10]
-    on_size: self.original_font_size = self.font_size
-    on_pos: self.original_font_size = self.font_size
-
-<Popup>:
-    background_color: 0.129, 0.129, 0.129, 1
-    separator_color: 0.424, 0.675, 0.894, 1
-    title_color: 1,1,1,1
-    title_size: 16
-    title_font: app.FONT_SEMIBOLD
-    canvas.before:
-        Color:
-            rgba: root.background_color
-        RoundedRectangle:
-            pos: self.pos
-            size: self.size
-            radius: [15]
-
-<MyWidget>:
-    orientation: 'vertical'
-    padding: 20
-    spacing: 20
-    canvas.before:
-        Color:
-            rgba: 0.129, 0.129, 0.129, 1
-        Rectangle:
-            pos: self.pos
-            size: self.size
-
-    BoxLayout:
-        orientation: 'vertical'
-        size_hint_y: None
-        height: self.minimum_height
-        spacing: 15
-
-        Label:
-            text: '[size=24][b]INSTALAR[/b][/size]'
-            markup: True
-            font_name: app.FONT_BOLD
-            size_hint_y: None
-            height: 25
-            color: 1,1,1,1
-
-        BoxLayout:
-            size_hint_y: None
-            height: 40
-            spacing: 20
-            HoverButton:
-                text: 'Spotify'
-                font_size: 16
-                default_color: 0.424, 0.675, 0.894, 1
-                hover_color: 0.3, 0.5, 0.7, 1
-                on_press: root.instalar_spotify()
-            HoverButton:
-                text: 'Spicetify'
-                font_size: 16
-                default_color: 0.424, 0.675, 0.894, 1
-                hover_color: 0.3, 0.5, 0.7, 1
-                style: "elevated"
-                pos_hint: {"center_x": .5, "center_y": .5}
-                on_press: root.instalar_spicetify()
-
-    BoxLayout:
-        orientation: 'vertical'
-        size_hint_y: None
-        height: self.minimum_height
-        spacing: 15
-        Label:
-            text: '[size=24][b]DESINSTALAR[/b][/size]'
-            markup: True
-            font_name: app.FONT_BOLD
-            size_hint_y: None
-            height: 25
-            color: 1,1,1,1
-        BoxLayout:
-            size_hint_y: None
-            height: 40
-            spacing: 20
-            HoverButton:
-                text: 'Spotify'
-                font_size: 16
-                default_color: 0.851, 0.208, 0.310, 1
-                hover_color: 0.7, 0.1, 0.2, 1
-                on_press: root.confirmar_desinstalacao('Spotify', root.desinstalar_spotify)
-            HoverButton:
-                text: 'Spicetify'
-                font_size: 16
-                default_color: 0.851, 0.208, 0.310, 1
-                hover_color: 0.7, 0.1, 0.2, 1
-                on_press: root.confirmar_desinstalacao('Spicetify', root.desinstalar_spicetify)
-
-    HoverButton:
-        text: 'SAIR'
-        font_size: 16
-        default_color: 0.357, 0.753, 0.871, 1
-        hover_color: 0.2, 0.6, 0.8, 1
-        size_hint_y: None
-        height: 40
-        on_press: root.confirmar_saida()
-'''
+    def adjust_brightness(self, color_hex, factor):
+        color = QColor(color_hex)
+        r = min(int(color.red() * factor), 255)
+        g = min(int(color.green() * factor), 255)
+        b = min(int(color.blue() * factor), 255)
+        return f"rgb({r}, {g}, {b})"
 
 
-class HoverBehavior:
-    hovered = BooleanProperty(False)
-    _current_hover = None
+class SpicetifyInstaller(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Instalador Spicetify")
+        self.setFixedSize(400, 240)
+        self.setWindowIcon(QIcon("src/icon.ico"))
 
-    def __init__(self, **kwargs):
-        self.register_event_type('on_enter')
-        self.register_event_type('on_leave')
-        Window.bind(mouse_pos=self.on_mouse_pos)
-        super().__init__(**kwargs)
+        palette = self.palette()
+        palette.setColor(QPalette.Window, QColor("#212327"))
+        self.setPalette(palette)
+        self.setAutoFillBackground(True)
 
-    def on_mouse_pos(self, window, pos):
-        if not self.get_root_window():
-            return
-        widget_pos = self.to_widget(*pos, relative=False)
-        inside = self.collide_point(*widget_pos)
+        self.load_fonts()
+        self.init_ui()
 
-        if HoverBehavior._current_hover == self and not inside:
-            self._leave()
-        elif inside and HoverBehavior._current_hover != self:
-            self._enter()
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self.update_progress)
+        self.progress_value = 0
 
-    def _enter(self):
-        if HoverBehavior._current_hover:
-            HoverBehavior._current_hover._leave()
-        HoverBehavior._current_hover = self
-        self.bold = True
-        self.hovered = True
-        self.dispatch('on_enter')
+    def load_fonts(self):
+        QFontDatabase.addApplicationFont("src/font/Inter-Variable.ttf")
+        QFontDatabase.addApplicationFont("src/font/Montserrat-Bold.ttf")
+        self.font_regular = QFont("Inter", 10)
+        self.font_bold = QFont("Montserrat", 10, QFont.Bold)
 
-    def _leave(self):
-        self.bold = False
-        self.hovered = False
-        self.dispatch('on_leave')
-        HoverBehavior._current_hover = None
+    def init_ui(self):
+        padding = 10
+        full_width = self.width() - 2 * padding
+        half_width = (self.width() - 3 * padding) // 2
 
+        self.label_desinstalar = QLabel("DESINSTALAR", self)
+        self.label_desinstalar.setFont(self.font_bold)
+        self.label_desinstalar.setStyleSheet("color: white; font-size: 18px;")
+        self.label_desinstalar.setGeometry(padding, 90, full_width, 30)
+        self.label_desinstalar.setAlignment(Qt.AlignCenter)
 
-class HoverButton(Button, HoverBehavior):
-    default_color = ColorProperty([0.4, 0.4, 0.4, 1])
-    hover_color = ColorProperty([0.6, 0.6, 0.6, 1])
-    original_font_size = NumericProperty(14)
+        self.progress = QProgressBar(self)
+        self.progress.setGeometry(padding, 180, full_width, 30)
+        self.progress.setValue(0)
+        self.progress.setFont(self.font_bold)
+        self.progress.setVisible(False)
+        self.progress.setAlignment(Qt.AlignCenter)
+        self.progress.setTextVisible(True)
+        self.progress.setStyleSheet("""
+            QProgressBar {
+                border: none;
+                border-radius: 10px;
+                background-color: #363636;
+                text-align: center;
+                color: white;
+                font-weight: bold;
+            }
+            QProgressBar::chunk {
+                border-radius: 10px;
+                background-color: #00c853;
+                margin: 0px;
+            }
+        """)
 
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        Clock.schedule_once(self._init_font_tracking)
+        self.label_autor = QLabel("by oBrazoo", self)
+        self.label_autor.setGeometry(8, self.height() - 20, 100, 15)
+        self.label_autor.setStyleSheet("color: gray; font-size: 10px;")
 
-    def _init_font_tracking(self, dt):
-        self.original_font_size = self.font_size
-        self.bind(font_size=self._update_font_size)
+        self.btn_instalar = CustomButton("INSTALAR SPICETIFY", "#0085eb", self.font_bold, self)
+        self.btn_instalar.setGeometry(padding, 20, full_width, 40)
+        self.btn_instalar.clicked.connect(self.simular_instalacao)
 
-    def _update_font_size(self, instance, value):
-        if not self.hovered:
-            self.original_font_size = value
+        self.btn_desinst_spicetify = CustomButton("SPICETIFY", "#D32F2F", self.font_regular, self)
+        self.btn_desinst_spicetify.setGeometry(padding, 120, half_width, 40)
+        self.btn_desinst_spicetify.clicked.connect(lambda: self.simular_acao("SPICETIFY"))
 
-    def on_enter(self):
-        Animation.cancel_all(self)
-        anim = Animation(
-            font_size=self.original_font_size * 1.2,
-            duration=0.03,
-            t='in_out_cubic'
-        )
-        anim.start(self)
-        Window.set_system_cursor('hand')
+        self.btn_desinst_spotify = CustomButton("SPOTIFY", "#D32F2F", self.font_regular, self)
+        self.btn_desinst_spotify.setGeometry(padding * 2 + half_width, 120, half_width, 40)
+        self.btn_desinst_spotify.clicked.connect(lambda: self.simular_acao("SPOTIFY"))
 
-    def on_leave(self):
-        Animation.cancel_all(self)
-        anim = Animation(
-            font_size=self.original_font_size,
-            duration=0.03,
-            t='in_out_cubic'
-        )
-        anim.start(self)
-        Window.set_system_cursor('arrow')
+    def simular_instalacao(self):
+        self.acao = "INSTALANDO"
+        self.start_progress_animation()
 
-###########################################################
+    # def simular_acao(self, nome):
+    #     self.acao = f"DESINSTALANDO {nome}"
+    #     self.start_progress_animation()
 
+    def start_progress_animation(self):
+        self.progress.setValue(0)
+        self.progress.setVisible(True)
 
-class MyWidget(BoxLayout):
-    URLS = {
-        'install_spotify': 'https://raw.githubusercontent.com/hi-bernardo/Spotify-Install/master/scripts/spotify.ps1',
-        'install_spicetify': 'https://raw.githubusercontent.com/hi-bernardo/Spotify-Install/master/scripts/spicetify.ps1',
-        'uninstall_spotify': 'https://raw.githubusercontent.com/hi-bernardo/Spotify-Install/master/scripts/remove_spotify.ps1',
-        'uninstall_spicetify': 'https://raw.githubusercontent.com/hi-bernardo/Spotify-Install/master/scripts/remove_spicetify.ps1'
-    }
-    montserrat_bold = StringProperty('')
-    montserrat_semibold = StringProperty('')
+        self.progress_value = 0
+        self.timer.start(30)
 
-    def instalar_spotify(self):
-        self.executar_comando(
-            f'iwr -useb "{self.URLS["install_spotify"]}" | iex',
-            'Iniciando instalação do Spotify...',
-            'Spotify',
-            'instalado'
-        )
-
-    def desinstalar_spotify(self):
-        self.executar_comando(
-            f'iwr -useb "{self.URLS["uninstall_spotify"]}" | iex',
-            'Iniciando desinstalação do Spotify...',
-            'Spotify',
-            'desinstalado'
-        )
-
-    def instalar_spicetify(self):
-        self.executar_comando(
-            f'iwr -useb "{self.URLS["install_spicetify"]}" | iex',
-            'Iniciando instalação do Spicetify...',
-            'Spicetify',
-            'instalado'
-        )
-
-    def desinstalar_spicetify(self):
-        self.executar_comando(
-            f'iwr -useb "{self.URLS["uninstall_spicetify"]}" | iex',
-            'Iniciando desinstalação do Spicetify...',
-            'Spicetify',
-            'desinstalado'
-        )
-
-    def confirmar_desinstalacao(self, programa, acao):
-        self.confirmar_acao(
-            'Confirmar',
-            f'Deseja desinstalar o {programa}?',
-            acao
-        )
-
-    def confirmar_saida(self):
-        self.confirmar_acao(
-            'Confirmar',
-            'Deseja realmente sair?',
-            App.get_running_app().stop
-        )
-
-    def executar_comando(self, comando, mensagem, programa, acao):
-        def run_cmd():
-            try:
-                resultado = subprocess.run(
-                    ['powershell', '-Command', comando],
-                    check=True,
-                    capture_output=True,
-                    text=True
-                )
-                # Mensagem simplificada para sucesso
-                mensagem = f"[b]{programa}[/b] {acao} com sucesso!"
-            except subprocess.CalledProcessError as e:
-                # Mantém detalhes do erro para diagnóstico
-                mensagem = f"Erro ao {acao.lower()} {programa}:\n{e.stderr}"
-            except Exception as e:
-                mensagem = f"Erro inesperado:\n{str(e)}"
-            finally:
-                Clock.schedule_once(lambda dt: popup.dismiss())
-                Clock.schedule_once(
-                    lambda dt: self.mostrar_popup('Resultado', mensagem, 5))
-                Window.set_system_cursor('arrow')
-
-        Window.set_system_cursor('wait')
-        popup = self.mostrar_popup('Executando', mensagem)
-        threading.Thread(target=run_cmd).start()
-
-    def mostrar_popup(self, titulo, mensagem, tempo=0):
-        content = BoxLayout(orientation='vertical', padding=10, spacing=10)
-
-        lbl = Label(
-            text=mensagem,
-            color=(1, 1, 1, 1),
-            markup=True,
-            halign='center',
-            font_size=dp(16),
-            text_size=(dp(280), None)
-        )
-
-        btn = HoverButton(
-            text='OK',
-            size_hint_y=None,
-            height=dp(40),
-            default_color=(0.424, 0.675, 0.894, 1),
-            hover_color=(0.3, 0.5, 0.7, 1)
-        )
-
-        content.add_widget(lbl)
-        content.add_widget(btn)
-
-        popup = Popup(
-            title=titulo,
-            content=content,
-            size_hint=(None, None),
-            size=(dp(320), dp(200)),
-            background_color=(0.129, 0.129, 0.129, 1)
-        )
-
-        btn.bind(on_press=popup.dismiss)
-
-        if tempo > 0:
-            Clock.schedule_once(lambda dt: popup.dismiss(), tempo)
-
-        popup.open()
-        return popup
-
-    def confirmar_acao(self, titulo, mensagem, acao):
-        content = BoxLayout(orientation='vertical', spacing=10, padding=10)
-        btn_sim = HoverButton(text='Sim', default_color=(
-            0.2, 0.8, 0.2, 1), hover_color=(0.1, 0.6, 0.1, 1))
-        btn_nao = HoverButton(text='Não', default_color=(
-            0.8, 0.2, 0.2, 1), hover_color=(0.6, 0.1, 0.1, 1))
-        lbl = Label(
-            text=mensagem,
-            color=(1, 1, 1, 1),
-            halign='center',
-            valign='middle'
-        )
-        content.add_widget(lbl)
-
-        botoes = BoxLayout(
-            spacing=10,
-            size_hint_y=None,
-            height=40
-        )
-
-        btn_sim = HoverButton(
-            text='Sim',
-            default_color=(0.2, 0.8, 0.2, 1),
-            hover_color=(0.1, 0.6, 0.1, 1)
-        )
-        btn_nao = HoverButton(
-            text='Não',
-            default_color=(0.8, 0.2, 0.2, 1),
-            hover_color=(0.6, 0.1, 0.1, 1)
-        )
-
-        botoes.add_widget(btn_sim)
-        botoes.add_widget(btn_nao)
-
-        content.add_widget(botoes)
-
-        popup = Popup(
-            title=titulo,
-            content=content,
-            size_hint=(None, None),
-            size=(300, 200),
-            auto_dismiss=False
-        )
-
-        btn_sim.bind(on_press=lambda x: [acao(), popup.dismiss()])
-        btn_nao.bind(on_press=popup.dismiss)
-
-        popup.open()
+    def update_progress(self):
+        if self.progress_value >= 100:
+            self.timer.stop()
+            self.progress.setVisible(False)
+        else:
+            self.progress_value += 1
+            self.progress.setValue(self.progress_value)
 
 
-class MyApp(App):
-    FONT_BOLD = StringProperty('')
-    FONT_SEMIBOLD = StringProperty('')
-
-    def build(self):
-        self.title = "FACILITANDO A VIDA"
-        self.icon = "icon.png"
-        self.FONT_BOLD = FONT_BOLD
-        self.FONT_SEMIBOLD = FONT_SEMIBOLD
-        Builder.load_string(kv_string)
-        return MyWidget()
-
-
-if __name__ == '__main__':
-    MyApp().run()
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+    window = SpicetifyInstaller()
+    window.show()
+    sys.exit(app.exec_())
