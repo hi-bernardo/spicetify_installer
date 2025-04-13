@@ -2,3 +2,5 @@
 log.txt
 dist/
 build/
+__pycache__/
+Spicetify-Installer.spec
