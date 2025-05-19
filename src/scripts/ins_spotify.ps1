@@ -5,19 +5,6 @@ Invoke-WebRequest -Uri $spotifyUrl -OutFile $downloadPath
 $installPath = "$env:APPDATA\Spotify"
 Start-Process -Wait -FilePath $downloadPath -ArgumentList "/extract $installPath"
 
-# Criação do objeto COM
-$WScriptObj = New-Object -ComObject ("WScript.Shell")
-
-$desktopShortcut = "$env:USERPROFILE\Desktop\Spotify.lnk"
-$shortcut = $WScriptObj.CreateShortcut($desktopShortcut)
-$shortcut.TargetPath = "$installPath\Spotify.exe"
-$shortcut.Save()
-
-$startMenuShortcut = "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Spotify.lnk"
-$shortcut = $WScriptObj.CreateShortcut($startMenuShortcut)
-$shortcut.TargetPath = "$installPath\Spotify.exe"
-$shortcut.Save()
-
 $regPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Spotify"
 New-Item -Path $regPath -Force | Out-Null
 Set-ItemProperty -Path $regPath -Name 'DisplayName' -Value 'Spotify'
@@ -29,17 +16,3 @@ Set-ItemProperty -Path $regPath -Name 'InstallLocation' -Value "$installPath"
 Set-ItemProperty -Path $regPath -Name 'URLInfoAbout' -Value 'https://www.spotify.com'
 Set-ItemProperty -Path $regPath -Name 'NoModify' -Value 1 -Type DWord
 Set-ItemProperty -Path $regPath -Name 'NoRepair' -Value 1 -Type DWord
-
-# Caminho para o atalho no menu iniciar (necessário para fixar)
-$shell = New-Object -ComObject Shell.Application
-$folder = $shell.Namespace((Split-Path $startMenuShortcut))
-$item = $folder.ParseName((Split-Path $startMenuShortcut -Leaf))
-
-# Executa o verbo "Fixar na barra de tarefas" se estiver disponível
-$verbs = $item.Verbs()
-foreach ($verb in $verbs) {
-    if ($verb.Name.Replace('&','') -match "Fixar.*barra de tarefas") {
-        $verb.DoIt()
-        break
-    }
-}
