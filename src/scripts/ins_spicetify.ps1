@@ -1,6 +1,21 @@
 $ErrorActionPreference = 'Stop'
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
+# ------------------------------------------
+# >>> INÍCIO MODIFICAÇÕES: Controle do Spotify
+# Verifica se o Spotify está em execução e encerra se necessário
+Write-Host 'Verificando instância do Spotify...' -NoNewline
+$spotifyProcess = Get-Process -Name 'Spotify' -ErrorAction SilentlyContinue
+if ($spotifyProcess) {
+    Write-Host " Encontrado. Encerrando Spotify..." -ForegroundColor Yellow
+    Stop-Process -Name 'Spotify' -Force
+    Start-Sleep -Seconds 2
+} else {
+    Write-Host " Não encontrado." -ForegroundColor Green
+}
+# <<< FIM MODIFICAÇÕES: Controle do Spotify
+# ------------------------------------------
+
 #region Variables
 $spicetifyFolderPath = "$env:LOCALAPPDATA\spicetify"
 $spicetifyOldFolderPath = "$HOME\spicetify-cli"
@@ -198,7 +213,6 @@ $Parameters = @{
 }
 Invoke-WebRequest @Parameters | Invoke-Expression
 #endregion Marketplace
-#endregion Main
 
 #region Custom app
 Write-Host 'Installing lyrics-plus app...' -NoNewline
@@ -206,3 +220,12 @@ spicetify config custom_apps lyrics-plus enable-devtools
 spicetify apply
 Write-Success
 #endregion
+
+# ------------------------------------------
+# >>> INÍCIO MODIFICAÇÕES: Reiniciar Spotify após instalação
+Start-Sleep -Seconds 3
+Write-Host 'Reiniciando Spotify...' -NoNewline
+Start-Process -FilePath "$env:APPDATA\Spotify\Spotify.exe"
+Write-Success
+# <<< FIM MODIFICAÇÕES: Reiniciar Spotify após instalação
+# ------------------------------------------
